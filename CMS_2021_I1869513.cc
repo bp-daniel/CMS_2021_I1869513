@@ -1,0 +1,190 @@
+// -*- C++ -*-
+#include "Rivet/Analysis.hh"
+#include "Rivet/Projections/PromptFinalState.hh"
+#include "Rivet/Projections/DressedLeptons.hh"
+#include "Rivet/Projections/FastJets.hh"
+#include "Rivet/Projections/ZFinder.hh"
+#include "Rivet/Projections/PromptFinalState.hh"
+#include "Rivet/Projections/InvisibleFinalState.hh"
+
+namespace Rivet {
+
+
+  /// @brief Add a short analysis description here
+  class CMS_2021_I1869513 : public Analysis {
+  public:
+
+    /// Constructor
+    RIVET_DEFAULT_ANALYSIS_CTOR(CMS_2021_I1869513);
+
+
+    /// @name Analysis methods
+    /// @{
+
+    /// Book histograms and initialise projections before the run
+    void init() {
+
+      // Initialise and register projections
+      FinalState fs(Cuts::abseta < 5.0);
+
+      PromptFinalState photons(Cuts::abspid == PID::PHOTON);
+      PromptFinalState electrons(Cuts::abspid == PID::ELECTRON);
+      PromptFinalState muons(Cuts::abspid == PID::MUON);
+
+      Cut cuts_el = (Cuts::pT > 25*GeV) && ( Cuts::abseta < 2.5);
+      Cut cuts_mu = (Cuts::pT > 20*GeV) && (Cuts::abseta < 2.4);
+
+      DressedLeptons dressed_electrons(photons, electrons, 0.1, cuts_el);
+      declare(dressed_electrons, "DressedElectrons");
+
+      DressedLeptons dressed_muons(photons, muons, 0.1, cuts_mu);
+      declare(dressed_muons, "DressedMuons");
+
+
+      const PromptFinalState photon_fs(Cuts::abspid == PID::PHOTON && (Cuts::pT > 20*GeV) && (Cuts::abseta < 2.5) && (Cuts::abseta > 1.566));
+      declare(photon_fs, "Photons");
+
+//      const Cut mycut = Cuts::eta >= 2.0 && Cuts::eta <= 4.5 && Cuts::pT > 20*GeV;
+      const Cut cutee = Cuts::abseta < 2.5 && Cuts::pT > 25*GeV;
+      ZFinder zfinderee(fs, cutee, PID::ELECTRON, 70*GeV, 110*GeV, 0., ZFinder::ClusterPhotons::NONE);
+      declare(zfinderee, "ZeeFinder");
+      const Cut cutmumu = Cuts::abseta < 2.4 && Cuts::pT > 20*GeV;
+      ZFinder zfindermm(fs, cutmumu, PID::MUON, 70*GeV, 110*GeV, 0., ZFinder::ClusterPhotons::NONE);
+      declare(zfindermm, "ZmumuFinder");
+
+      FastJets jets(fs, FastJets::ANTIKT, 0.4, JetAlg::Muons::NONE, JetAlg::Invisibles::NONE);
+      declare(jets, "Jets");
+
+      // FS excluding the leading photon
+       VetoedFinalState vfs;
+       vfs.addVetoOnThisFinalState(photon_fs);
+//       vfs.addVetoOnThisFinalState(dressedmuon_fs);
+       vfs.addVetoOnThisFinalState(InvisibleFinalState());
+       declare(vfs, "isolatedFS");
+
+      // Book histograms
+/*      
+      // specify custom binning
+      book(_h["XXXX"], "myh1", 20, 0.0, 100.0);
+      book(_h["YYYY"], "myh2", logspace(20, 1e-2, 1e3));
+      book(_h["ZZZZ"], "myh3", {0.0, 1.0, 2.0, 4.0, 8.0, 16.0});
+      // take binning from reference data using HEPData ID (digits in "d01-x01-y01" etc.)
+      book(_h["AAAA"], 1, 1, 1);
+      book(_p["BBBB"], 2, 1, 1);
+      book(_c["CCCC"], 3, 1, 1);
+*/
+     book(_h["pt_gamma"], 7, 1, 1); // dsigma/dpt (gamma) EW+QCD
+     book(_h["pt_jet1"], 8, 1, 1); //dsigma/dpt jet1 (EW+QCD)
+     book(_h["pt_lepton1"], 9, 1, 1);//dsigma/dpt lepton1 (EW+QCD)
+
+    }
+
+
+    /// Perform the per-event analysis
+    void analyze(const Event& event) {
+
+
+      const Particles& photons = apply<PromptFinalState>(event, "Photons").particlesByPt();
+
+      if (photons.empty())  vetoEvent;
+      
+//      const FourMomentum gamma = photons[0].mom() ;
+      
+      const ZFinder& zfindermm = applyProjection<ZFinder>(event, "ZmumuFinder");
+      const Particles& zmumus = zfindermm.bosons();
+      
+      const ZFinder& zfinderee = applyProjection<ZFinder>(event, "ZeeFinder");
+      const Particles& zees = zfinderee.bosons();
+      
+
+      if (zmumus.size() ==0 && zees.size() ==0 ) { vetoEvent;}
+      
+      Particle lepton[2] ;
+      FourMomentum Zboson;
+      if (zees.size() ==1 ) {
+           lepton[0] = zfinderee.constituentLeptons()[0];
+           lepton[1] = zfinderee.constituentLeptons()[1]; 
+           Zboson = zees[0].momentum();}
+      if (zmumus.size() ==1 ) {      
+           lepton[0] = zfindermm.constituentLeptons()[0];
+           lepton[1] = zfindermm.constituentLeptons()[1]; 
+           Zboson = zmumus[0].momentum();}
+
+      Particles selectedPh;
+      for (const Particle& ph : photons) {
+      
+        if (ph.pT() < 20 ) continue ;
+        if (ph.abseta() > 1.442 && ph.abseta() < 1.566) continue ;
+        if (ph.abseta() > 2.500) continue ;
+        // cut on DeltaR(l,gamma)
+        if (deltaR(ph, lepton[0]) < 0.7) continue;
+        if (deltaR(ph, lepton[1]) < 0.7) continue;
+        selectedPh.push_back(ph);
+      }
+ 
+      if (selectedPh.size()<1) vetoEvent;
+      
+      FourMomentum Zgamma = Zboson + selectedPh[0] ; // 4-vfector of Z+gamm
+      
+      if (Zgamma.mass() < 100.) vetoEvent ;
+      cout << " we have a Z+photon " << endl;
+
+      Jets jets;
+      for (const Jet& j : apply<FastJets>(event, "Jets").jetsByPt(Cuts::pT > 30*GeV && Cuts::absrap < 4.7)) {
+        if (deltaR(j, lepton[0]) < 0.5 || deltaR(j, lepton[1]) < 0.5 || deltaR(j, selectedPh[0]) < 0.5 ) {
+          continue;
+        }
+        
+        jets += j;
+      }
+
+      // Require 2 jets with pT > 85 and 80 GeV
+      if (jets.size() < 2) vetoEvent;
+
+      cout << " we have Z+photon + 2 jets" << endl;
+
+
+      FourMomentum dijet = jets[0].mom() + jets[1].mom();
+      double dijetMass = dijet.mass();
+      cout << " we have Z+photon + 2 jets" << endl;
+      cout << " dletaeta " << abs(jets[0].eta() - jets[1].eta()) << endl;
+      cout << "dijet mass " << dijetMass << endl;
+      if (abs(jets[0].eta() - jets[1].eta()) < 2.5 ) vetoEvent ;
+      if (dijetMass < 150 || dijetMass > 500 ) vetoEvent ;
+      _h["pt_gamma"]  -> fill(selectedPh[0].pT());
+      _h["pt_jet1"]   -> fill(jets[0].pT());
+      _h["pt_lepton1"]-> fill(lepton[0].pT());
+
+     
+
+
+
+
+    }
+
+
+    /// Normalise histograms etc., after the run
+    void finalize() {
+
+      scale(_h, crossSection()/femtobarn/sumW()); // norm to generated cross-section in pb (after cuts)
+
+    }
+
+    /// @}
+
+
+    /// @name Histograms
+    /// @{
+    map<string, Histo1DPtr> _h;
+    map<string, Profile1DPtr> _p;
+    map<string, CounterPtr> _c;
+    /// @}
+
+
+  };
+
+
+  RIVET_DECLARE_PLUGIN(CMS_2021_I1869513);
+
+}
+

@@ -1,0 +1,40 @@
+Name: CMS_2021_I1869513
+Year: 2021
+Summary: Electroweak production pof $Z\gamma$ and two jets
+Experiment: CMS
+Collider: LHC
+InspireID: 1869513
+Status: UNVALIDATED NOHEPDATA SINGLEWEIGHT UNPHYSICAL
+Reentrant: false
+Authors:
+ - Your Name <your@email.address>
+References:
+ - Phys.Rev D 104 072001 (2021)
+ - arXiv:2106.11082
+#RunInfo: <Describe event types, cuts, and other general generator config tips.>
+#Beams: [p+, p+]
+#Energies: [[6500,6500]]
+#Luminosity_fb: 139.0
+Description:
+  'A brief description of what is measured and what it is useful for.
+   Use LaTeX for maths, e.g. $\pT > 50\;\GeV$.'
+ValidationInfo:
+  'A description of the process used to validate the Rivet code against
+  the original experimental analysis. Cut-flow tables and similar information
+  are welcome'
+#ReleaseTests:
+# - $A my-hepmc-prefix :MODE=some_rivet_flag
+Keywords: []
+BibKey: CMS:2021gme
+BibTeX: '
+@article{CMS:2021gme,
+	author = {Tumasyan, Armen and others},
+	journal = {Phys. Rev. D},
+	pages = {072001},
+	title = {{Measurement of the electroweak production of Z$\gamma$ and two jets in proton-proton collisions at $\sqrt{s} =$ 13 TeV and constraints on anomalous quartic gauge couplings}},
+	volume = {104},
+	year = {2021}}
+'
+ToDo:
+ - Implement the analysis, test it, remove this ToDo, and mark as VALIDATED :-)
+
